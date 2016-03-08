@@ -109,7 +109,7 @@ def chat_all_new_posts(c, target):
                 lines = comment.split('\n')
                 for line in lines:
                     if not re.match(r'^\s*$', line):
-                        quote = r'>>((\d+)|(((>(/\w+)*)*)))'
+                        quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
                         if re.search(quote, line):
                             splitline = line.split(' ')
                             for i, word in enumerate(splitline):
