@@ -16,21 +16,20 @@ from basc_py4chan.util import clean_comment_body
 import irc.client
 
 import sys
+import configparser
+
+cfg = configparser.ConfigParser()
+cfg.read('config.cfg')
 
 # configuration here
-irc_server = 'irc.rizon.net'
-irc_port = 6670
-board_name = 'vg'
-irc_nick = 'emugentxt'
-irc_channel = '/#emugen/'
-general = 'emugen|emulation' # matching pattern to find thread
+irc_server = cfg['IRC'].get('server', fallback='irc.rizon.net')
+irc_port = cfg['IRC'].getint('port', fallback=6697)
+irc_nick = cfg['IRC'].get('nick', fallback='pyemugenbot')
+irc_channel = cfg['IRC'].get('channel', fallback='#emugentest')
 
-#irc_nick = 'hbgtxt'
-#irc_channel = '#emugentest'
-#general = 'hbg|homebrew' # matching pattern to find thread
-
-archive = 'boards.fireden.net'
-
+board_name = cfg['4chan'].get('board', fallback='vg')
+general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
+archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
 
 board = basc_py4chan.Board(board_name)
 thread = board.get_thread(0)

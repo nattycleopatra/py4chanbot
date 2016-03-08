@@ -1,0 +1,12 @@
+# configure values and rename to config.cfg
+
+[IRC]
+server = irc.rizon.net
+port = 6697
+nick = pyemugenbot
+channel = #emugentest
+
+[4chan]
+board = vg
+general = emugen|emulation
+archive = boards.fireden.net
