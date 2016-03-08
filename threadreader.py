@@ -126,7 +126,10 @@ def chat_all_new_posts(c, target):
                 print(output.getvalue(),end="")
                 for line in output.getvalue().split('\n'):
                     for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
-                        c.privmsg(target, wrapped)
+                        try:
+                            c.privmsg(target, wrapped)
+                        except:
+                            print('Exception: ' + sys.exc_info()[0])
 
                 output.close()
             return True
