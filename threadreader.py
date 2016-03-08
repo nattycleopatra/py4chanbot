@@ -20,21 +20,24 @@ import sys
 # configuration here
 irc_server = 'irc.rizon.net'
 irc_port = 6670
+board_name = 'vg'
 irc_nick = 'emugentxt'
+irc_channel = '/#emugen/'
+general = 'emugen|emulation' # matching pattern to find thread
+
 #irc_nick = 'hbgtxt'
 #irc_channel = '#emugentest'
-irc_channel = '/#emugen/'
-board_name = 'vg'
-general = 'emugen|emulation' # matching pattern to find thread
 #general = 'hbg|homebrew' # matching pattern to find thread
+
+archive = 'boards.fireden.net'
 
 
 board = basc_py4chan.Board(board_name)
-threadid = 0
-thread = board.get_thread(threadid)
+thread = board.get_thread(0)
 
-archive = 'boards.fireden.net'
-archive_url = 'https://' + archive + '/' + board_name + '/thread/' + str(thread.topic.post_id)
+
+def archive_url():
+    return 'https://' + archive + '/' + board_name + '/thread/' + str(thread.topic.post_id)
 
 def print_new_posts():
     update = thread.update()
@@ -45,7 +48,7 @@ def print_new_posts():
             #print("New post", post.post_id, "::")
             print('[{}] '.format(post.post_id),end="",file=output)
             if post.name != 'Anonymous':
-                print('[name: '.end="",file=output)
+                print('[name: ',end="",file=output)
                 if post.name != 'None':
                     print('{}'.format(post.name),end="",file=output)
                 if not post.tripcode is None:
@@ -61,15 +64,12 @@ def print_new_posts():
             print(output.getvalue(),end="")
             output.close()
 
-def set_thread(board, threadid):
+def set_thread(board, thread_id):
     global thread
-    thread = board.get_thread(threadid)
+    thread = board.get_thread(thread_id)
 
-def thread_alive(board, threadid):
-    if (board.thread_exists(threadid)):
-        return True
-    else:
-        return False
+def thread_alive(board, thread_id):
+    return (board.thread_exists(thread_id))
 
 def find_current_thread(board, general):
     for thread in board.get_all_threads():
@@ -81,12 +81,11 @@ def find_current_thread(board, general):
 
 def chat_all_new_posts(c, target):
     update = thread.update()
-    if (thread_alive(board, threadid)):
+    if (thread_alive(board, thread.topic.post_id)):
         if (update > 0):
             new_posts = thread.posts[-update:]
             for post in new_posts:
                 output = StringIO(newline='')
-                #print("New post", post.post_id, "::")
                 print('[\x02\x0310{}\x0f] '.format(post.post_id),end="",file=output)
                 if post.name != 'Anonymous':
                     print('[name: {}'.format(post.name),end="",file=output)
@@ -129,8 +128,8 @@ def chat_all_new_posts(c, target):
             print('No new posts')
             return False
     else:
-        print('Thread is dead')
-        c.privmsg(target, "Thread 404'd: " + archive_url)
+        print('Thread is dead' + str(thread.topic.post_id))
+        c.privmsg(target, "Thread 404'd: " + archive_url())
         set_thread(board, wait_for_new_thread())
         discovered = 'Found new thread: ' + https_url(thread.url)
         c.privmsg(target, discovered)
@@ -149,7 +148,9 @@ def wait_for_new_thread():
     return new_id
 
 def feed_loop(c, target):
-    print('Bot started up')
+    print('Bot started up, looking for thread')
+    set_thread(board, wait_for_new_thread())
+    print('Found ' + str(thread.topic.post_id))
     check_interval = 0
     while (1):
         time.sleep(check_interval)
@@ -164,22 +165,6 @@ def https_url(url):
     return url.replace('http', 'https')
 
 def main():
-    global target
-    global threadid
-
-    id = threadid
-
-    if thread_alive(board, id):
-        print("Thread be up.")
-    else:
-        while (id < 2):
-            id = find_current_thread(board, general)
-            if (id == -1):
-                time.sleep(60)
-        set_thread(board, id)
-        threadid = id
-    print(thread)
-
     reactor = irc.client.Reactor()
     try:
         c = reactor.server()
