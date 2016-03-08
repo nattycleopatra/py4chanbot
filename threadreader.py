@@ -11,6 +11,7 @@ import re
 import threading
 import configparser
 from io import StringIO
+import textwrap
 
 import basc_py4chan
 from basc_py4chan.util import clean_comment_body
@@ -94,7 +95,9 @@ def chat_all_new_posts(c, target):
                     print('] ',end="",file=output)
                 if post.has_file:
                     #print('[\x0310file:\x0f {}]'.format(https_url(post.file_url)),file=output)
-                    # File.filename_original not yet upstream
+
+                    # File.filename_original attribute has been merged upstream but is not yet in release
+                    # https://github.com/bibanon/BASC-py4chan/commit/205d001
                     print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(https_url(post.file_url), post.file.filename_original),file=output)
                 comment = post.comment
                 if re.search('<s>', comment):
@@ -120,9 +123,10 @@ def chat_all_new_posts(c, target):
                         else:
                             print(line,file=output)
 
-                for line in output.getvalue().split('\n'):
-                    c.privmsg(target, line)
                 print(output.getvalue(),end="")
+                for line in output.getvalue().split('\n'):
+                    for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
+                        c.privmsg(target, wrapped)
 
                 output.close()
             return True
