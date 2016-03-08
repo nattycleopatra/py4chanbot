@@ -4,19 +4,18 @@
 
 from __future__ import unicode_literals, absolute_import, print_function, division
 
+import sys
 import time
-import re
-from io import StringIO
 
+import re
 import threading
-from threading import Thread
+import configparser
+from io import StringIO
 
 import basc_py4chan
 from basc_py4chan.util import clean_comment_body
 import irc.client
 
-import sys
-import configparser
 
 cfg = configparser.ConfigParser()
 cfg.read('config.cfg')
@@ -87,12 +86,16 @@ def chat_all_new_posts(c, target):
                 output = StringIO(newline='')
                 print('[\x02\x0310{}\x0f] '.format(post.post_id),end="",file=output)
                 if post.name != 'Anonymous':
-                    print('[name: {}'.format(post.name),end="",file=output)
+                    print('[\x0314name:\x0f ',end="",file=output)
+                    if not post.name is None:
+                        print(post.name,end="",file=output)
                     if not post.tripcode is None:
-                        print(post.tripcode,end="",file=output)
+                        print('\x0313{}\x0f'.format(post.tripcode),end="",file=output)
                     print('] ',end="",file=output)
                 if post.has_file:
-                    print('[img: {}]'.format(https_url(post.file_url)),file=output)
+                    #print('[\x0310file:\x0f {}]'.format(https_url(post.file_url)),file=output)
+                    # File.filename_original not yet upstream
+                    print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(https_url(post.file_url), post.file.filename_original),file=output)
                 comment = post.comment
                 if re.search('<s>', comment):
                     comment = comment.replace('<s>', '\x0301,01')
@@ -182,7 +185,7 @@ def main():
         raise SystemExit(1)
 
 
-    print('Finished trying')
+    print('Main process moving into connection maintainance')
     reactor.process_forever()
 
 
