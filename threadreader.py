@@ -113,23 +113,28 @@ def chat_all_new_posts(c, target):
                     comment = post.text_comment
                 lines = comment.split('\n')
                 for line in lines:
-                    if not re.match(r'^\s*$', line):
+                    if not re.match(r'^\s*$', line): # no checking of blank lines
                         quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
-                        youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
                         if re.search(quote, line):
                             splitline = line.split(' ')
                             for i, word in enumerate(splitline):
                                 if re.match(quote, word): # quote handling
                                     word = '\x0304', word, '\x0f'
                                     splitline[i] = ('').join(word)
-                                yt_match = re.search(youtube, word)
-                                if yt_match: #youtube handling
+                            line = (' ').join(splitline)
+
+                        youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
+                        yt_match = re.search(youtube, line)
+                        if yt_match: #youtube handling
+                            splitline = line.split(' ')
+                            for i, word in enumerate(splitline):
+                                if re.search(youtube, word):
                                     video_id = yt_match.group(0)
                                     page = requests.get('https://www.youtube.com/watch?v=' + video_id)
                                     tree = html.fromstring(page.content)
                                     video_title = tree.find(".//title").text[0:-10]
-                                    youtube_formatted = '[You\x0301,05Tube] ' + video_title + ' [https://youtu.be/' + video_id + ']'
-                                    splitline[i] = ('').join(youtube_formatted)
+                                    word = '[You\x0301,05Tube\x0f] ' + video_title + ' [https://youtu.be/' + video_id + ']'
+                                    splitline[i] = ('').join(word)
                             line = (' ').join(splitline)
                         greentext = '^>[^>\n]+$'
                         if re.match(greentext, line):
