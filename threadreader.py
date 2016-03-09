@@ -33,7 +33,7 @@ archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
 
 board = basc_py4chan.Board(board_name)
 thread = board.get_thread(0)
-bumplimit_warning = true
+bumplimit_warning = True
 
 
 def archive_url():
@@ -147,14 +147,14 @@ def chat_all_new_posts(c, target):
                     print(discovered)
                     c.privmsg(target, discovered)
                     global bumplimit_warning
-                    bumplimit_warning = true
+                    bumplimit_warning = True
                     return True
                 else:
                     if bumplimit_warning:
                         warning = 'Current thread has now reached the \x0307bump limit\x0f!'
                         c.privmsg(target, warning)
                         global bumplimit_warning
-                        bumplimit_warning = false
+                        bumplimit_warning = False
             return False
     else:
         print('Thread is dead ' + str(thread.topic.post_id))
