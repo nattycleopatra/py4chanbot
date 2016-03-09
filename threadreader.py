@@ -154,22 +154,22 @@ def chat_all_new_posts(c, target):
                 old_thread = thread.id
                 set_thread(board, wait_for_new_thread())
                 if thread.id != old_thread:
-                    discovered = 'Discovered next thread: ' + https_url(thread.url)
+                    discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + https_url(thread.url)
                     print(discovered)
                     c.privmsg(target, discovered)
                     bumplimit_warning = True
                     return True
                 else:
                     if bumplimit_warning:
-                        warning = 'Current thread has now reached the \x0307bump limit\x0f!'
+                        warning = '[\x0305WARNING!\x0f] Current thread has now reached the \x0307bump limit\x0f!'
                         c.privmsg(target, warning)
                         bumplimit_warning = False
             return False
     else:
         print('Thread is dead ' + str(thread.topic.post_id))
-        c.privmsg(target, 'THREAD IS \x0305DEAD+\x0f! Archive URL: ' + archive_url())
+        c.privmsg(target, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD+\x0f! Archive URL: ' + archive_url())
         set_thread(board, wait_for_new_thread())
-        discovered = 'Discovered new thread: ' + https_url(thread.url)
+        discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + https_url(thread.url)
         print(discovered)
         c.privmsg(target, discovered)
         return True
