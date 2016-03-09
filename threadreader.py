@@ -122,13 +122,14 @@ def chat_all_new_posts(c, target):
                                 if re.match(quote, word): # quote handling
                                     word = '\x0304', word, '\x0f'
                                     splitline[i] = ('').join(word)
-                                yt_match = re.match(youtube, word)
+                                yt_match = re.search(youtube, word)
                                 if yt_match: #youtube handling
                                     video_id = yt_match.group(0)
                                     page = requests.get('https://www.youtube.com/watch?v=' + video_id)
                                     tree = html.fromstring(page.content)
                                     video_title = tree.find(".//title").text[0:-10]
-                                    word = '[You\x0301,05Tube] ' + video_title + ' [https://youtu.be/' + video_id + ']'
+                                    youtube_formatted = '[You\x0301,05Tube] ' + video_title + ' [https://youtu.be/' + video_id + ']'
+                                    splitline[i] = ('').join(youtube_formatted)
                             line = (' ').join(splitline)
                         greentext = '^>[^>\n]+$'
                         if re.match(greentext, line):
