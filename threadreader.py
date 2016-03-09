@@ -12,6 +12,8 @@ import threading
 import configparser
 from io import StringIO
 import textwrap
+from lxml import html
+import requests
 
 import basc_py4chan
 from basc_py4chan.util import clean_comment_body
@@ -113,12 +115,20 @@ def chat_all_new_posts(c, target):
                 for line in lines:
                     if not re.match(r'^\s*$', line):
                         quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
+                        youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
                         if re.search(quote, line):
                             splitline = line.split(' ')
                             for i, word in enumerate(splitline):
-                                if re.match(quote, word):
+                                if re.match(quote, word): # quote handling
                                     word = '\x0304', word, '\x0f'
                                     splitline[i] = ('').join(word)
+                                yt_match = re.match(youtube, word)
+                                if yt_match: #youtube handling
+                                    video_id = yt_match.group(0)
+                                    page = requests.get('https://www.youtube.com/watch?v=' + video_id)
+                                    tree = html.fromstring(page.content)
+                                    video_title = tree.find(".//title").text[0:-10]
+                                    word = '[You\x0301,05Tube] ' + video_title + ' [https://youtu.be/' + video_id + ']'
                             line = (' ').join(splitline)
                         greentext = '^>[^>\n]+$'
                         if re.match(greentext, line):
