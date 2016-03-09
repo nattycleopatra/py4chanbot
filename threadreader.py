@@ -74,9 +74,6 @@ def thread_alive(board, thread):
 
 def find_current_thread(board, general):
     for thread in board.get_all_threads():
-        if re.search(general, thread.topic.comment, re.I):
-            print('Found current thread /b/ test:', thread.url)
-            return thread.id
         if thread.topic.subject is not None:
             if re.search(general, thread.topic.subject, re.I):
                 print('Found current thread:', thread.url)
