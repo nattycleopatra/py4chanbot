@@ -33,6 +33,7 @@ archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
 
 board = basc_py4chan.Board(board_name)
 thread = board.get_thread(0)
+bumplimit_warning = true
 
 
 def archive_url():
@@ -73,9 +74,13 @@ def thread_alive(board, thread):
 
 def find_current_thread(board, general):
     for thread in board.get_all_threads():
-        if re.search(general, thread.topic.subject, re.I):
-            print('Found current thread:', thread.url)
-            return thread.topic.post_id
+        if re.search(general, thread.topic.comment, re.I):
+            print('Found current thread /b/ test:', thread.url)
+            return thread.id
+        if thread.topic.subject is not None:
+            if re.search(general, thread.topic.subject, re.I):
+                print('Found current thread:', thread.url)
+                return thread.topic.post_id
     print("No thread up at the moment")
     return -1
 
@@ -141,16 +146,24 @@ def chat_all_new_posts(c, target):
                 old_thread = thread.id
                 set_thread(board, wait_for_new_thread())
                 if thread.id != old_thread:
-                    discovered = 'Found new thread: ' + https_url(thread.url)
+                    discovered = 'Discovered next thread: ' + https_url(thread.url)
                     print(discovered)
                     c.privmsg(target, discovered)
+                    global bumplimit_warning
+                    bumplimit_warning = true
                     return True
+                else:
+                    if bumplimit_warning:
+                        warning = 'Current thread has now reached the \x0307bump limit\x0f!'
+                        c.privmsg(target, warning)
+                        global bumplimit_warning
+                        bumplimit_warning = false
             return False
     else:
-        print('Thread is dead' + str(thread.topic.post_id))
-        c.privmsg(target, "Thread is dead: " + archive_url())
+        print('Thread is dead ' + str(thread.topic.post_id))
+        c.privmsg(target, 'THREAD IS \x0305DEAD+\x0f! Archive URL: ' + archive_url())
         set_thread(board, wait_for_new_thread())
-        discovered = 'Found new thread: ' + https_url(thread.url)
+        discovered = 'Discovered new thread: ' + https_url(thread.url)
         print(discovered)
         c.privmsg(target, discovered)
         return True
@@ -160,6 +173,7 @@ def wait_for_new_thread():
     
     check_interval = 10
     while (new_id < 1):
+        print('Waiting for thread - {}s refresh'.format(check_interval))
         time.sleep(check_interval)
         new_id = find_current_thread(board, general)
         if check_interval < 120:
@@ -170,7 +184,6 @@ def wait_for_new_thread():
 def feed_loop(c, target):
     print('Bot started up, looking for thread')
     set_thread(board, wait_for_new_thread())
-    print('Found ' + str(thread.topic.post_id))
     check_interval = 5
     while (1):
         time.sleep(check_interval)
