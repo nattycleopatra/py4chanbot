@@ -138,6 +138,7 @@ def chat_all_new_posts(c, target):
             return True
         else:
             print('No new posts')
+            global bumplimit_warning
             if thread.bumplimit:
                 print('Bump limit reached ({} posts), looking for new thread'.format(len(thread.posts)))
                 old_thread = thread.id
@@ -146,14 +147,12 @@ def chat_all_new_posts(c, target):
                     discovered = 'Discovered next thread: ' + https_url(thread.url)
                     print(discovered)
                     c.privmsg(target, discovered)
-                    global bumplimit_warning
                     bumplimit_warning = True
                     return True
                 else:
                     if bumplimit_warning:
                         warning = 'Current thread has now reached the \x0307bump limit\x0f!'
                         c.privmsg(target, warning)
-                        global bumplimit_warning
                         bumplimit_warning = False
             return False
     else:
