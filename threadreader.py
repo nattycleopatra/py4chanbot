@@ -12,8 +12,8 @@ import threading
 import configparser
 from io import StringIO
 import textwrap
-from lxml import html
-import requests
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
 
 import basc_py4chan
 from basc_py4chan.util import clean_comment_body
@@ -130,10 +130,9 @@ def chat_all_new_posts(c, target):
                             for i, word in enumerate(splitline):
                                 if re.search(youtube, word):
                                     video_id = yt_match.group(0)
-                                    page = requests.get('https://www.youtube.com/watch?v=' + video_id)
-                                    tree = html.fromstring(page.content)
-                                    video_title = tree.find(".//title").text[0:-10]
-                                    word = '[You\x0301,05Tube\x0f] ' + video_title + ' [https://youtu.be/' + video_id + ']'
+                                    bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
+                                    video_title = bs.title.string[0:-10]
+                                    word = '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f [https://youtu.be/' + video_id + ']'
                                     splitline[i] = ('').join(word)
                             line = (' ').join(splitline)
                         greentext = '^>[^>\n]+$'
