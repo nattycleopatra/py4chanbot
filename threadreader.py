@@ -32,6 +32,7 @@ irc_channel = cfg['IRC'].get('channel', fallback='#emugentest')
 board_name = cfg['4chan'].get('board', fallback='vg')
 general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
 archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
+admins = ['soon']
 
 board = basc_py4chan.Board(board_name)
 thread = board.get_thread(0)
@@ -208,14 +209,48 @@ def feed_loop(c, target):
 def https_url(url):
     return url.replace('http', 'https')
 
+def on_pubmsg(connection, event):
+    print(event.arguments[0])
+    if re.search('^' + connection.get_nickname() + ':', event.arguments[0]):
+        print('Detected my own nick mentioned')
+        cmd = event.arguments[0].split(' ')[1]
+        if (cmd == 'thread'):
+            connection.privmsg(irc_channel, 'Current thread is ' + https_url(thread.url))
+        elif (cmd == 'posts'):
+            connection.privmsg(irc_channel, 'Thread is currently at ' + str(len(thread.posts)) + ' posts')
+        elif (cmd == 'ppm' or cmd == 'speed'):
+            time_since = int(time.time()) - thread.topic.timestamp
+            ppm = len(thread.posts) / ((time_since / 60) / 60)
+            connection.privmsg(irc_channel, "Current thread's PPM is now at {0:.2f}".format(ppm))
+        elif (cmd == 'commands'):
+            commands = ['thread: returns URL to current thread',
+                        'posts: returns post count of current thread',
+                        'ppm|speed: returns the average posts per minute for this thread'
+                       ]
+            for msg in commands:
+                connection.privmsg(event.source.nick, msg)
+        elif (cmd == 'restart' or cmd == 'die'):
+            if (event.source.nick in admins):
+                connection.part(irc_channel, "As you order, master...")
+                time.sleep(3)
+                connection.disconnect()
+                if (cmd == 'die'):
+                    sys.exit()
+                import os
+                os.execv(__file__, sys.argv)
+
+
 def main():
     reactor = irc.client.Reactor()
     try:
         c = reactor.server()
         c.connect(irc_server, irc_port, irc_nick)
 
+        time.sleep(2)
         c.join(irc_channel)
         c.set_keepalive(60)
+
+        c.add_global_handler('pubmsg', on_pubmsg)
 
         t = threading.Thread(target=feed_loop, args=(c,irc_channel,))
         t.start()
