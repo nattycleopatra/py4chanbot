@@ -257,6 +257,7 @@ def main():
     reactor = irc.client.Reactor()
     try:
         c = reactor.server()
+        c.buffer_class = irc.buffer.LenientDecodingLineBuffer
         c.connect(irc_server, irc_port, irc_nick)
 
         time.sleep(2)
