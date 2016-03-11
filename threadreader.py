@@ -28,11 +28,11 @@ irc_server = cfg['IRC'].get('server', fallback='irc.rizon.net')
 irc_port = cfg['IRC'].getint('port', fallback=6697)
 irc_nick = cfg['IRC'].get('nick', fallback='pyemugenbot')
 irc_channel = cfg['IRC'].get('channel', fallback='#emugentest')
+admins = cfg['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
 
 board_name = cfg['4chan'].get('board', fallback='vg')
 general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
 archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
-admins = ['soon']
 
 board = basc_py4chan.Board(board_name)
 thread = board.get_thread(0)
@@ -84,6 +84,26 @@ def find_current_thread(board, general):
     print("No thread up at the moment")
     return -1
 
+def youtube_match(string):
+    youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
+    return re.search(youtube, string)
+
+def youtube_video_title_lookup(string, include_url=False):
+    yt_match = youtube_match(string)
+    if yt_match: #youtube handling
+        splitline = string.split(' ')
+        for i, word in enumerate(splitline):
+            if re.search(youtube, word):
+                video_id = yt_match.group(0)
+                bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
+                video_title = bs.title.string[0:-10]
+                word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
+                if include_url:
+                    word = word + ' [https://youtu.be/' + video_id + ']'
+                splitline[i] = ('').join(word)
+        string = (' ').join(splitline)
+    return string
+
 def chat_all_new_posts(c, target):
     update = thread.update()
     if (thread_alive(board, thread)):
@@ -124,18 +144,8 @@ def chat_all_new_posts(c, target):
                                     splitline[i] = ('').join(word)
                             line = (' ').join(splitline)
 
-                        youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
-                        yt_match = re.search(youtube, line)
-                        if yt_match: #youtube handling
-                            splitline = line.split(' ')
-                            for i, word in enumerate(splitline):
-                                if re.search(youtube, word):
-                                    video_id = yt_match.group(0)
-                                    bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
-                                    video_title = bs.title.string[0:-10]
-                                    word = '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f [https://youtu.be/' + video_id + ']'
-                                    splitline[i] = ('').join(word)
-                            line = (' ').join(splitline)
+                        if youtube_match(line):
+                            line = youtube_video_title_lookup(line, True)
                         greentext = '^>[^>\n]+$'
                         if re.match(greentext, line):
                             print('\x0303{}\x0f'.format(line),file=output)
@@ -210,7 +220,7 @@ def https_url(url):
     return url.replace('http', 'https')
 
 def on_pubmsg(connection, event):
-    print(event.arguments[0])
+    yt_match = youtube_match(event.arguments[0])
     if re.search('^' + connection.get_nickname() + ':', event.arguments[0]):
         print('Detected my own nick mentioned')
         cmd = event.arguments[0].split(' ')[1]
@@ -238,6 +248,9 @@ def on_pubmsg(connection, event):
                     sys.exit()
                 import os
                 os.execv(__file__, sys.argv)
+    elif yt_match:
+        output = '↑↑ ' + youtube_video_title_lookup(event.arguments[0]) + ' ↑↑'
+        connection.privmsg(irc_channel, output)
 
 
 def main():
