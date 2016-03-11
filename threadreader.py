@@ -93,7 +93,7 @@ def youtube_video_title_lookup(string, include_url=False):
     if yt_match: #youtube handling
         splitline = string.split(' ')
         for i, word in enumerate(splitline):
-            if re.search(youtube, word):
+            if youtube_match(word):
                 video_id = yt_match.group(0)
                 bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
                 video_title = bs.title.string[0:-10]
