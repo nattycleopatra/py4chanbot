@@ -51,6 +51,17 @@ def thread_alive(board, thread):
     #return (board.thread_exists(thread_id))
     return board.thread_exists(thread.id) and thread.archived == False
 
+def find_threads(board, general, search_comment=False):
+    threads = set()
+    for thread in board.get_all_threads():
+        if thread.topic.subject is not None:
+            if re.search(general, thread.topic.subject, re.I):
+                threads.add(thread)
+        if search_comment:
+            if re.search(general, thread.topic.comment, re.I):
+                threads.add(thread)
+    return threads
+
 def find_current_thread(board, general):
     for thread in board.get_all_threads():
         if thread.topic.subject is not None:
@@ -213,12 +224,23 @@ def on_pubmsg(connection, event):
                         invalid_board = False
                         print('Board found')
                         search_board = basc_py4chan.Board(split_args[2], https)
-                        thread_id = find_current_thread(search_board, split_args[3])
-                        if thread_id > 0:
-                            print('Thread found')
-                            found_thread = search_board.get_thread(thread_id)
-                            message = '\x0304' + found_thread.topic.subject + '\x0f: ' + found_thread.url
-                            connection.privmsg(irc_channel, message)
+                        threads = find_threads(search_board, split_args[3], True)
+                        if len(threads) > 0:
+                            print('Thread(s) found')
+                            for found_thread in threads:
+                                subject = found_thread.topic.subject
+                                comment = found_thread.topic.text_comment
+                                if subject is not None:
+                                    message = '\x0304' + found_thread.topic.subject + '\x0f'
+                                else:
+                                    line = comment.split('\n')[0]
+                                    maxlength = 50
+                                    if len(line) > maxlength:
+                                        message = '\x0304' + line[:maxlength] + '...' + '\x0f'
+                                    else:
+                                        message = '\x0304' + line + '\x0f'
+                                message = message + ': ' + found_thread.url
+                                connection.privmsg(irc_channel, message)
                         else:
                             connection.privmsg(irc_channel, 'No such thread')
                 if invalid_board:
