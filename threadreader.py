@@ -43,31 +43,6 @@ bumplimit_warning = True
 def archive_url():
     return 'https://' + archive + '/' + board_name + '/thread/' + str(thread.topic.post_id)
 
-def print_new_posts():
-    update = thread.update()
-    if (update > 0):
-        new_posts = thread.posts[-update:]
-        for post in new_posts:
-            output = StringIO(newline='')
-            #print("New post", post.post_id, "::")
-            print('[{}] '.format(post.post_id),end="",file=output)
-            if post.name != 'Anonymous':
-                print('[name: ',end="",file=output)
-                if post.name != 'None':
-                    print('{}'.format(post.name),end="",file=output)
-                if not post.tripcode is None:
-                    print(post.tripcode,end="",file=output)
-                print('] ',end="",file=output)
-            if post.has_file:
-                print('[img: {}]'.format(post.file_url),file=output)
-            comment = post.text_comment
-            lines = comment.split('\n')
-            for line in lines:
-                if not re.match(r'^\s*$', line):
-                    print(line,file=output)
-            print(output.getvalue(),end="")
-            output.close()
-
 def set_thread(board, thread_id):
     global thread
     thread = board.get_thread(thread_id)
@@ -105,7 +80,7 @@ def youtube_video_title_lookup(string, include_url=False):
         string = (' ').join(splitline)
     return string
 
-def chat_all_new_posts(c, target):
+def chat_new_posts(c, target):
     update = thread.update()
     if (thread_alive(board, thread)):
         if (update > 0):
@@ -208,7 +183,7 @@ def feed_loop(c, target):
     check_interval = 5
     while (1):
         time.sleep(check_interval)
-        if (chat_all_new_posts(c, target)):
+        if (chat_new_posts(c, target)):
             check_interval = 5
         else:
             if (check_interval < 30):
