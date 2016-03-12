@@ -191,10 +191,12 @@ def feed_loop(c, target):
             print("Waiting {} seconds".format(check_interval))
 
 def on_pubmsg(connection, event):
-    yt_match = youtube_match(event.arguments[0])
-    if re.search('^' + connection.get_nickname() + ':', event.arguments[0]):
+    args = event.arguments[0]
+    yt_match = youtube_match(args)
+    if re.search('^' + connection.get_nickname() + ':', args):
         print('Detected my own nick mentioned')
-        cmd = event.arguments[0].split(' ')[1]
+        split_args = args.split(' ')
+        cmd = split_args[1]
         if (cmd == 'thread'):
             connection.privmsg(irc_channel, thread.url)
         elif (cmd == 'posts'):
@@ -203,10 +205,31 @@ def on_pubmsg(connection, event):
             time_since = int(time.time()) - thread.topic.timestamp
             ppm = len(thread.posts) / (time_since / 60)
             connection.privmsg(irc_channel, "{0:.2f} posts per minute".format(ppm))
+        elif (cmd == 'search'):
+            if len(args.split(' ')) > 3:
+                invalid_board = True
+                for board in basc_py4chan.get_all_boards():
+                    if split_args[2] == board.name:
+                        invalid_board = False
+                        print('Board found')
+                        search_board = basc_py4chan.Board(split_args[2], https)
+                        thread_id = find_current_thread(search_board, split_args[3])
+                        if thread_id > 0:
+                            print('Thread found')
+                            found_thread = search_board.get_thread(thread_id)
+                            message = '\x0304' + found_thread.topic.subject + '\x0f: ' + found_thread.url
+                            connection.privmsg(irc_channel, message)
+                        else:
+                            connection.privmsg(irc_channel, 'No such thread')
+                if invalid_board:
+                    connection.privmsg(irc_channel, 'No such board')
+            else:
+                connection.privmsg(irc_channel, 'Not enough arguments')
         elif (cmd == 'commands'):
             commands = ['thread: returns URL to current thread',
                         'posts: returns post count of current thread',
                         'ppm|speed: returns the average posts per minute for this thread'
+                        'search <board> <thread>: returns thread title and URL if found'
                        ]
             for msg in commands:
                 connection.privmsg(event.source.nick, msg)
@@ -218,7 +241,7 @@ def on_pubmsg(connection, event):
                 import os
                 os.execv(__file__, sys.argv)
     elif yt_match:
-        output = '↑↑ ' + youtube_video_title_lookup(event.arguments[0]) + ' ↑↑'
+        output = '↑↑ ' + youtube_video_title_lookup(args[0]) + ' ↑↑'
         connection.privmsg(irc_channel, output)
 
 def on_disconnect(connection, event):
