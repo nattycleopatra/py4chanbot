@@ -226,7 +226,7 @@ def on_pubmsg(connection, event):
                         invalid_board = False
                         print('Board found')
                         search_board = basc_py4chan.Board(split_args[2], https)
-                        threads = find_threads(search_board, split_args[3], True)
+                        threads = find_threads(search_board, (' ').join(split_args[3:]), True)
                         if len(threads) > 0:
                             print('Thread(s) found')
                             for found_thread in threads:
