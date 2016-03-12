@@ -158,7 +158,7 @@ def chat_all_new_posts(c, target):
                         try:
                             c.privmsg(target, wrapped)
                         except:
-                            print('Exception: ' + sys.exc_info()[0])
+                            print(sys.exc_info()[0])
 
                 output.close()
             return True
@@ -225,13 +225,13 @@ def on_pubmsg(connection, event):
         print('Detected my own nick mentioned')
         cmd = event.arguments[0].split(' ')[1]
         if (cmd == 'thread'):
-            connection.privmsg(irc_channel, 'Current thread is ' + https_url(thread.url))
+            connection.privmsg(irc_channel, https_url(thread.url))
         elif (cmd == 'posts'):
             connection.privmsg(irc_channel, 'Thread is currently at ' + str(len(thread.posts)) + ' posts')
         elif (cmd == 'ppm' or cmd == 'speed'):
             time_since = int(time.time()) - thread.topic.timestamp
-            ppm = len(thread.posts) / ((time_since / 60) / 60)
-            connection.privmsg(irc_channel, "Current thread's PPM is now at {0:.2f}".format(ppm))
+            ppm = len(thread.posts) / (time_since / 60)
+            connection.privmsg(irc_channel, "{0:.2f} posts per minute".format(ppm))
         elif (cmd == 'commands'):
             commands = ['thread: returns URL to current thread',
                         'posts: returns post count of current thread',
@@ -241,9 +241,7 @@ def on_pubmsg(connection, event):
                 connection.privmsg(event.source.nick, msg)
         elif (cmd == 'restart' or cmd == 'die'):
             if (event.source.nick in admins):
-                connection.part(irc_channel, "As you order, master...")
-                time.sleep(3)
-                connection.disconnect()
+                connection.disconnect('As you wish my lord...')
                 if (cmd == 'die'):
                     sys.exit()
                 import os
@@ -252,6 +250,9 @@ def on_pubmsg(connection, event):
         output = '↑↑ ' + youtube_video_title_lookup(event.arguments[0]) + ' ↑↑'
         connection.privmsg(irc_channel, output)
 
+def on_disconnect(connection, event):
+    time.sleep(3)
+    connection.reconnect()
 
 def main():
     reactor = irc.client.Reactor()
@@ -265,6 +266,7 @@ def main():
         c.set_keepalive(60)
 
         c.add_global_handler('pubmsg', on_pubmsg)
+        c.add_global_handler('disconnect', on_disconnect)
 
         t = threading.Thread(target=feed_loop, args=(c,irc_channel,))
         t.start()
@@ -272,7 +274,7 @@ def main():
         print('Bot runloop started')
 
     except irc.client.ServerConnectionError:
-        print(sys.exc_info()[1])
+        print(sys.exc_info()[0])
         raise SystemExit(1)
 
 
