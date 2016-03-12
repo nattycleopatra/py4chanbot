@@ -33,8 +33,9 @@ admins = cfg['IRC'].get('admins', fallback='').split(',') # comma separated list
 board_name = cfg['4chan'].get('board', fallback='vg')
 general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
 archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
+https = cfg['4chan'].getboolean('https', fallback=True)
 
-board = basc_py4chan.Board(board_name)
+board = basc_py4chan.Board(board_name, https)
 thread = board.get_thread(0)
 bumplimit_warning = True
 
@@ -120,11 +121,9 @@ def chat_all_new_posts(c, target):
                         print('\x0313{}\x0f'.format(post.tripcode),end="",file=output)
                     print('] ',end="",file=output)
                 if post.has_file:
-                    #print('[\x0310file:\x0f {}]'.format(https_url(post.file_url)),file=output)
-
                     # File.filename_original attribute has been merged upstream but is not yet in release
                     # https://github.com/bibanon/BASC-py4chan/commit/205d001
-                    print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(https_url(post.file_url), post.file.filename_original),file=output)
+                    print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.file_url, post.file.filename_original),file=output)
                 comment = post.comment
                 if re.search('<s>', comment):
                     comment = comment.replace('<s>', '\x0301,01')
@@ -170,7 +169,7 @@ def chat_all_new_posts(c, target):
                 old_thread = thread.id
                 set_thread(board, wait_for_new_thread())
                 if thread.id != old_thread:
-                    discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + https_url(thread.url)
+                    discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + thread.url
                     print(discovered)
                     c.privmsg(target, discovered)
                     bumplimit_warning = True
@@ -185,7 +184,7 @@ def chat_all_new_posts(c, target):
         print('Thread is dead ' + str(thread.topic.post_id))
         c.privmsg(target, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD+\x0f! Archive URL: ' + archive_url())
         set_thread(board, wait_for_new_thread())
-        discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + https_url(thread.url)
+        discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + thread.url
         print(discovered)
         c.privmsg(target, discovered)
         return True
@@ -216,16 +215,13 @@ def feed_loop(c, target):
                 check_interval += 5
             print("Waiting {} seconds".format(check_interval))
 
-def https_url(url):
-    return url.replace('http', 'https')
-
 def on_pubmsg(connection, event):
     yt_match = youtube_match(event.arguments[0])
     if re.search('^' + connection.get_nickname() + ':', event.arguments[0]):
         print('Detected my own nick mentioned')
         cmd = event.arguments[0].split(' ')[1]
         if (cmd == 'thread'):
-            connection.privmsg(irc_channel, https_url(thread.url))
+            connection.privmsg(irc_channel, thread.url)
         elif (cmd == 'posts'):
             connection.privmsg(irc_channel, 'Thread is currently at ' + str(len(thread.posts)) + ' posts')
         elif (cmd == 'ppm' or cmd == 'speed'):
