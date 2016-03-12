@@ -257,13 +257,19 @@ def on_pubmsg(connection, event):
                        ]
             for msg in commands:
                 connection.privmsg(event.source.nick, msg)
-        elif (cmd == 'restart' or cmd == 'die'):
+        else:
             if (event.source.nick in admins):
-                connection.disconnect('As you wish my lord...')
-                if (cmd == 'die'):
+                if (cmd == 'restart'):
+                    connection.disconnect('As you wish my lord...')
+                    import os
+                    os.execv(__file__, sys.argv)
+                elif (cmd == 'quit' or cmd == 'die'):
+                    connection.disconnect('Yes master...')
                     sys.exit()
-                import os
-                os.execv(__file__, sys.argv)
+                elif (cmd == 'msg'):
+                    if len(args.split(' ')) > 3:
+                        msg = (' ').join(split_args[3:])
+                        connection.privmsg(split_args[2], msg)
     elif yt_match:
         output = '↑↑ ' + youtube_video_title_lookup(args[0]) + ' ↑↑'
         connection.privmsg(irc_channel, output)
