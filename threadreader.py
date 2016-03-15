@@ -91,8 +91,23 @@ def youtube_video_title_lookup(string, include_url=False):
         string = (' ').join(splitline)
     return string
 
+def update_thread():
+    update = -1
+    tries = 0
+    while tries < 10:
+        try:
+            update = thread.update()
+            break
+        except requests.exceptions.HTTPError:
+            time.sleep(5+tries)
+            continue
+        tries += 1
+    return update
+
 def chat_new_posts(c, target):
-    update = thread.update()
+    update = update_thread()
+    if update == -1:
+        return False
     if (thread_alive(board, thread)):
         if (update > 0):
             new_posts = thread.posts[-update:]
