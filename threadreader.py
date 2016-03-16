@@ -6,6 +6,7 @@ from __future__ import unicode_literals, absolute_import, print_function, divisi
 
 import sys
 import time
+from time import strftime
 
 import re
 import threading
@@ -34,6 +35,8 @@ board_name = cfg['4chan'].get('board', fallback='vg')
 general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
 archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
 https = cfg['4chan'].getboolean('https', fallback=True)
+
+DEBUG_PRINT = cfg['bot'].getboolean('debug', fallback=True)
 
 board = basc_py4chan.Board(board_name, https)
 thread = board.get_thread(0)
@@ -66,9 +69,9 @@ def find_current_thread(board, general):
     for thread in board.get_all_threads():
         if thread.topic.subject is not None:
             if re.search(general, thread.topic.subject, re.I):
-                print('Found current thread:', thread.url)
+                print_debug('Found current thread:', thread.url)
                 return thread.topic.post_id
-    print("No thread up at the moment")
+    print_debug("No thread up at the moment")
     return -1
 
 def youtube_match(string):
@@ -99,7 +102,7 @@ def update_thread():
             update = thread.update()
             break
         except HTTPError as e:
-            print('Update attempt returned HTTP error ' + str(e.response.status_code))
+            print_debug('Update attempt returned HTTP error ' + str(e.response.status_code), 'ERROR')
             time.sleep(5+tries)
             continue
         tries += 1
@@ -153,7 +156,7 @@ def chat_new_posts(c, target):
                         else:
                             print(line,file=output)
 
-                print(output.getvalue(),end="")
+                print_debug(output.getvalue(), 'POST', False)
                 for line in output.getvalue().split('\n'):
                     for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
                         try:
@@ -161,20 +164,20 @@ def chat_new_posts(c, target):
                                 c.reconnect()
                             c.privmsg(target, wrapped)
                         except:
-                            print(sys.exc_info()[0])
+                            print_debug(sys.exc_info()[0], 'ERROR')
 
                 output.close()
             return True
         else:
-            print('No new posts')
+            print_debug('No new posts')
             global bumplimit_warning
             if thread.bumplimit:
-                print('Bump limit reached ({} posts), looking for new thread'.format(len(thread.posts)))
+                print_debug('Bump limit reached ({} posts), looking for new thread'.format(len(thread.posts)), 'WARNING')
                 old_thread = thread.id
                 set_thread(board, wait_for_new_thread())
                 if thread.id != old_thread:
                     discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + thread.url
-                    print(discovered)
+                    print_debug(discovered)
                     c.privmsg(target, discovered)
                     bumplimit_warning = True
                     return True
@@ -185,11 +188,11 @@ def chat_new_posts(c, target):
                         bumplimit_warning = False
             return False
     else:
-        print('Thread is dead ' + str(thread.topic.post_id))
-        c.privmsg(target, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD+\x0f! Archive URL: ' + archive_url())
+        print_debug('Thread is dead ' + str(thread.topic.post_id), 'WARNING')
+        c.privmsg(target, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD\x0f! Archive URL: ' + archive_url())
         set_thread(board, wait_for_new_thread())
         discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + thread.url
-        print(discovered)
+        print_debug(discovered)
         c.privmsg(target, discovered)
         return True
 
@@ -198,7 +201,7 @@ def wait_for_new_thread():
     
     check_interval = 10
     while (new_id < 1):
-        print('Waiting for thread - {}s refresh'.format(check_interval))
+        print_debug('Waiting for thread - {}s refresh'.format(check_interval))
         time.sleep(check_interval)
         new_id = find_current_thread(board, general)
         if check_interval < 120:
@@ -207,7 +210,7 @@ def wait_for_new_thread():
     return new_id
 
 def feed_loop(c, target):
-    print('Bot started up, looking for thread')
+    print_debug('Bot started up, looking for thread')
     set_thread(board, wait_for_new_thread())
     check_interval = 5
     while (1):
@@ -217,13 +220,13 @@ def feed_loop(c, target):
         else:
             if (check_interval < 30):
                 check_interval += 5
-            print("Waiting {} seconds".format(check_interval))
+            print_debug("Waiting {} seconds".format(check_interval))
 
 def on_pubmsg(connection, event):
     args = event.arguments[0]
     yt_match = youtube_match(args)
     if re.search('^' + connection.get_nickname() + ':', args):
-        print('Detected my own nick mentioned')
+        print_debug('Detected my own nick mentioned')
         split_args = args.split(' ')
         cmd = split_args[1]
         if (cmd == 'thread'):
@@ -240,11 +243,11 @@ def on_pubmsg(connection, event):
                 for board in basc_py4chan.get_all_boards():
                     if split_args[2] == board.name:
                         invalid_board = False
-                        print('Board found')
+                        print_debug('Board found')
                         search_board = basc_py4chan.Board(split_args[2], https)
                         threads = find_threads(search_board, (' ').join(split_args[3:]), True)
                         if len(threads) > 0:
-                            print('Thread(s) found')
+                            print_debug('Thread(s) found')
                             for found_thread in threads:
                                 subject = found_thread.topic.subject
                                 comment = found_thread.topic.text_comment
@@ -294,6 +297,16 @@ def on_disconnect(connection, event):
     time.sleep(3)
     connection.reconnect()
 
+def print_debug(msg, type='INFO', newline=True, time=True):
+    if DEBUG_PRINT:
+        message = '[{}] {}'.format(type, msg)
+        if time:
+            message = strftime('%Y-%m-%d %H:%M:%S') + ' ' + message
+        if newline:
+            print(message)
+        else:
+            print(message, end='')
+
 def main():
     reactor = irc.client.Reactor()
     try:
@@ -311,14 +324,14 @@ def main():
         t = threading.Thread(target=feed_loop, args=(c,irc_channel,))
         t.start()
 
-        print('Bot runloop started')
+        print_debug('Bot runloop started')
 
     except irc.client.ServerConnectionError:
         print(sys.exc_info()[0])
         raise SystemExit(1)
 
 
-    print('Main process moving into connection maintainance')
+    print_debug('Main process moving into connection maintainance')
     reactor.process_forever()
 
 
