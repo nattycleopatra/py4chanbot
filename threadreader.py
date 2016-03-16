@@ -98,7 +98,8 @@ def update_thread():
         try:
             update = thread.update()
             break
-        except requests.exceptions.HTTPError:
+        except HTTPError as e:
+            print('Update attempt returned HTTP error ' + str(e.response.status_code))
             time.sleep(5+tries)
             continue
         tries += 1
