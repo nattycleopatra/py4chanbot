@@ -36,7 +36,7 @@ general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pa
 archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
 https = cfg['4chan'].getboolean('https', fallback=True)
 
-DEBUG_PRINT = cfg['bot'].getboolean('debug', fallback=True)
+DEBUG_PRINT = cfg['general'].getboolean('debug', fallback=True)
 
 board = basc_py4chan.Board(board_name, https)
 thread = board.get_thread(0)
@@ -69,9 +69,9 @@ def find_current_thread(board, general):
     for thread in board.get_all_threads():
         if thread.topic.subject is not None:
             if re.search(general, thread.topic.subject, re.I):
-                print_debug('Found current thread:', thread.url)
+                print_debug('Found current thread: {}'.format(thread.url))
                 return thread.topic.post_id
-    print_debug("No thread up at the moment")
+    print_debug('No thread up at the moment')
     return -1
 
 def youtube_match(string):
@@ -102,7 +102,7 @@ def update_thread():
             update = thread.update()
             break
         except HTTPError as e:
-            print_debug('Update attempt returned HTTP error ' + str(e.response.status_code), 'ERROR')
+            print_debug('Update attempt returned HTTP error {}'.format(str(e.response.status_code)), 'ERROR')
             time.sleep(5+tries)
             continue
         tries += 1
@@ -117,14 +117,14 @@ def chat_new_posts(c, target):
             new_posts = thread.posts[-update:]
             for post in new_posts:
                 output = StringIO(newline='')
-                print('[\x02\x0310{}\x0f] '.format(post.post_id),end="",file=output)
+                print('[\x02\x0310{}\x0f] '.format(post.post_id),end='',file=output)
                 if post.name != 'Anonymous':
-                    print('[\x0314name:\x0f ',end="",file=output)
+                    print('[\x0314name:\x0f ',end='',file=output)
                     if not post.name is None:
-                        print(post.name,end="",file=output)
+                        print(post.name,end='',file=output)
                     if not post.tripcode is None:
-                        print('\x0313{}\x0f'.format(post.tripcode),end="",file=output)
-                    print('] ',end="",file=output)
+                        print('\x0313{}\x0f'.format(post.tripcode),end='',file=output)
+                    print('] ',end='',file=output)
                 if post.has_file:
                     # File.filename_original attribute has been merged upstream but is not yet in release
                     # https://github.com/bibanon/BASC-py4chan/commit/205d001
@@ -220,7 +220,7 @@ def feed_loop(c, target):
         else:
             if (check_interval < 30):
                 check_interval += 5
-            print_debug("Waiting {} seconds".format(check_interval))
+            print_debug('Waiting {} seconds'.format(check_interval))
 
 def on_pubmsg(connection, event):
     args = event.arguments[0]
@@ -236,7 +236,7 @@ def on_pubmsg(connection, event):
         elif (cmd == 'ppm' or cmd == 'speed'):
             time_since = int(time.time()) - thread.topic.timestamp
             ppm = len(thread.posts) / (time_since / 60)
-            connection.privmsg(irc_channel, "{0:.2f} posts per minute".format(ppm))
+            connection.privmsg(irc_channel, '{0:.2f} posts per minute'.format(ppm))
         elif (cmd == 'search'):
             if len(args.split(' ')) > 3:
                 invalid_board = True
