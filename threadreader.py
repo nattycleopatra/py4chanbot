@@ -303,6 +303,9 @@ def on_disconnect(connection, event):
     time.sleep(3)
     connection.reconnect()
 
+def on_welcome(connection, event):
+    connection.join(irc_channel)
+
 def print_debug(msg, type='INFO', newline=True, time=True):
     if DEBUG_PRINT:
         message = '[{}] {}'.format(type, msg)
@@ -320,12 +323,11 @@ def main():
         c.buffer_class = irc.buffer.LenientDecodingLineBuffer
         c.connect(irc_server, irc_port, irc_nick)
 
-        time.sleep(2)
-        c.join(irc_channel)
         c.set_keepalive(60)
 
         c.add_global_handler('pubmsg', on_pubmsg)
         c.add_global_handler('disconnect', on_disconnect)
+        c.add_global_handler('welcome', on_welcome)
 
         t = threading.Thread(target=feed_loop, args=(c,irc_channel,))
         t.start()
