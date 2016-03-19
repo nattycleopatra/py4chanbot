@@ -82,16 +82,20 @@ def youtube_video_title_lookup(string, include_url=False):
     yt_match = youtube_match(string)
     if yt_match: #youtube handling
         splitline = string.split(' ')
-        for i, word in enumerate(splitline):
-            if youtube_match(word):
-                video_id = yt_match.group(0)
-                bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
-                video_title = bs.title.string[0:-10]
-                word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
-                if include_url:
-                    word = word + ' [https://youtu.be/' + video_id + ']'
-                splitline[i] = ('').join(word)
-        string = (' ').join(splitline)
+        import urllib
+        try:
+            for i, word in enumerate(splitline):
+                if youtube_match(word):
+                    video_id = yt_match.group(0)
+                    bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
+                    video_title = bs.title.string[0:-10]
+                    word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
+                    if include_url:
+                        word = word + ' [https://youtu.be/' + video_id + ']'
+                    splitline[i] = ('').join(word)
+            string = (' ').join(splitline)
+        except urllib.error.HTTPError as e:
+            print_debug('Got HTTP error {} attempting to open YouTube link'.format(str(e.code)), 'ERROR')
     return string
 
 def update_thread():
@@ -290,8 +294,10 @@ def on_pubmsg(connection, event):
                         msg = (' ').join(split_args[3:])
                         connection.privmsg(split_args[2], msg)
     elif yt_match:
-        output = '↑↑ ' + youtube_video_title_lookup(args[0]) + ' ↑↑'
-        connection.privmsg(irc_channel, output)
+        title = youtube_video_title_lookup(args)
+        if title != args:
+            output = '↑↑ ' + youtube_video_title_lookup(args) + ' ↑↑'
+            connection.privmsg(irc_channel, output)
 
 def on_disconnect(connection, event):
     time.sleep(3)
