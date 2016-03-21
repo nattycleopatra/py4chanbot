@@ -6,18 +6,13 @@ from __future__ import unicode_literals, absolute_import, print_function, divisi
 
 import sys
 import time
-from time import strftime
-
 import re
 import threading
 import configparser
 from io import StringIO
 import textwrap
-from urllib.request import urlopen
-from bs4 import BeautifulSoup
 
 import basc_py4chan
-from basc_py4chan.util import clean_comment_body
 import irc.client
 
 
@@ -83,11 +78,12 @@ def youtube_video_title_lookup(string, include_url=False):
     if yt_match: #youtube handling
         splitline = string.split(' ')
         import urllib
+        from bs4 import BeautifulSoup
         try:
             for i, word in enumerate(splitline):
                 if youtube_match(word):
                     video_id = yt_match.group(0)
-                    bs = BeautifulSoup(urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
+                    bs = BeautifulSoup(urllib.request.urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
                     video_title = bs.title.string[0:-10]
                     word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
                     if include_url:
@@ -137,9 +133,7 @@ def chat_new_posts(c, target):
                 if re.search('<s>', comment):
                     comment = comment.replace('<s>', '\x0301,01')
                     comment = comment.replace('</s>', '\x0f')
-                    comment = clean_comment_body(comment)
-                else:
-                    comment = post.text_comment
+                comment = basc_py4chan.util.clean_comment_body(comment)
                 lines = comment.split('\n')
                 for line in lines:
                     if not re.match(r'^\s*$', line): # no checking of blank lines
@@ -306,11 +300,11 @@ def on_disconnect(connection, event):
 def on_welcome(connection, event):
     connection.join(irc_channel)
 
-def print_debug(msg, type='INFO', newline=True, time=True):
+def print_debug(msg, type='INFO', newline=True, time_display=True):
     if DEBUG_PRINT:
         message = '[{}] {}'.format(type, msg)
-        if time:
-            message = strftime('%Y-%m-%d %H:%M:%S') + ' ' + message
+        if time_display:
+            message = '[' + time.strftime('%Y-%m-%d %H:%M:%S') + '] ' + message
         if newline:
             print(message)
         else:
