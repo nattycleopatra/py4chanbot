@@ -24,6 +24,8 @@ irc_server = cfg['IRC'].get('server', fallback='irc.rizon.net')
 irc_port = cfg['IRC'].getint('port', fallback=6697)
 irc_nick = cfg['IRC'].get('nick', fallback='pyemugenbot')
 irc_channel = cfg['IRC'].get('channel', fallback='#emugentest')
+irc_nickserv = cfg['IRC'].get('nickserv', fallback='NickServ')
+irc_nickpass = cfg['IRC'].get('nickserv_password', fallback='')
 admins = cfg['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
 
 board_name = cfg['4chan'].get('board', fallback='vg')
@@ -85,6 +87,8 @@ def youtube_video_title_lookup(string, include_url=False):
                     video_id = yt_match.group(0)
                     bs = BeautifulSoup(urllib.request.urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
                     video_title = bs.title.string[0:-10]
+                    if not video_title:
+                        return string
                     word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
                     if include_url:
                         word = word + ' [https://youtu.be/' + video_id + ']'
@@ -288,16 +292,43 @@ def on_pubmsg(connection, event):
                         msg = (' ').join(split_args[3:])
                         connection.privmsg(split_args[2], msg)
     elif yt_match:
-        title = youtube_video_title_lookup(args)
-        if title != args:
-            output = '↑↑ ' + youtube_video_title_lookup(args) + ' ↑↑'
-            connection.privmsg(irc_channel, output)
+        output = []
+        for part in args.split(' '):
+            if youtube_match(part):
+                title = youtube_video_title_lookup(part)
+                if title != part: 
+                    output.append('↑↑ ' + title + ' ↑↑')
+        for msg in output:
+            connection.privmsg(irc_channel, msg)
+
+def on_privmsg(connection, event):
+    args = event.arguments[0]
+    split_args = args.split(' ')
+    cmd = split_args[0]
+    print_debug(args)
+    if (event.source.nick in admins):
+        if (cmd == 'msg'):
+            msg = (' ').join(split_args[2:])
+            connection.privmsg(split_args[1], msg)
+        if (cmd == 'restart'):
+            connection.disconnect('Restarting...')
+            import os
+            os.execv(__file__, sys.argv)
+    if (event.source.nick not in admins):
+        for admin in admins:
+            connection.privmsg(admin, '<{}> '.format(event.source.nick) + args)
+
+def on_ctcp(connection, event):
+    if event.arguments[0] == 'VERSION':
+        connection.ctcp_reply(event.source.nick, 'VERSION pyemugenbot 0.1')
 
 def on_disconnect(connection, event):
     time.sleep(3)
     connection.reconnect()
 
 def on_welcome(connection, event):
+    if irc_nickpass:
+        connection.privmsg(irc_nickserv, 'IDENTIFY ' + irc_nickpass)
     connection.join(irc_channel)
 
 def print_debug(msg, type='INFO', newline=True, time_display=True):
@@ -320,8 +351,11 @@ def main():
         c.set_keepalive(60)
 
         c.add_global_handler('pubmsg', on_pubmsg)
-        c.add_global_handler('disconnect', on_disconnect)
+        c.add_global_handler('privmsg', on_privmsg)
+        c.add_global_handler('privnotice', on_privmsg)
+        c.add_global_handler('ctcp', on_ctcp)
         c.add_global_handler('welcome', on_welcome)
+        c.add_global_handler('disconnect', on_disconnect)
 
         t = threading.Thread(target=feed_loop, args=(c,irc_channel,))
         t.start()
