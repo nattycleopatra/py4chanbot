@@ -133,16 +133,17 @@ def chat_new_posts(c, target):
                 if post.has_file:
                     # File.filename_original attribute has been merged upstream but is not yet in release
                     # https://github.com/bibanon/BASC-py4chan/commit/205d001
-                    print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.file_url, post.file.filename_original),file=output)
+                    print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.file_url, post.file.filename_original),end='',file=output)
+                print(file=output)
                 comment = post.comment
                 if re.search('<s>', comment):
                     comment = comment.replace('<s>', '\x0301,01')
                     comment = comment.replace('</s>', '\x0f')
                 comment = basc_py4chan.util.clean_comment_body(comment)
                 lines = comment.split('\n')
+                quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
                 for line in lines:
                     if not re.match(r'^\s*$', line): # no checking of blank lines
-                        quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
                         if re.search(quote, line):
                             splitline = line.split(' ')
                             for i, word in enumerate(splitline):
@@ -160,14 +161,25 @@ def chat_new_posts(c, target):
                             print(line,file=output)
 
                 print_debug(output.getvalue(), 'POST', False)
-                for line in output.getvalue().split('\n'):
-                    for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
-                        try:
-                            if not c.is_connected():
-                                c.reconnect()
-                            c.privmsg(target, wrapped)
-                        except:
-                            print_debug(sys.exc_info()[0], 'ERROR')
+                buffer = ''
+                for i, line in enumerate(output.getvalue().split('\n')):
+                    if i == 0:
+                        buffer = line
+                        if buffer[-1] is not ' ':
+                            buffer += ' '
+                    elif re.match('\x0304' + quote + '\x0f', line):
+                        buffer += line + ' '
+                    else:
+                        if buffer:
+                            line = buffer + line
+                        for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
+                            try:
+                                if not c.is_connected():
+                                    c.reconnect()
+                                c.privmsg(target, wrapped)
+                            except:
+                                print_debug(sys.exc_info()[0], 'ERROR')
+                        buffer = ''
 
                 output.close()
             return True
