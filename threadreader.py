@@ -11,6 +11,7 @@ import threading
 import configparser
 from io import StringIO
 import textwrap
+import requests
 
 import basc_py4chan
 import irc.client
@@ -105,8 +106,8 @@ def update_thread():
         try:
             update = thread.update()
             break
-        except HTTPError as e:
-            print_debug('Update attempt returned HTTP error {}'.format(str(e.response.status_code)), 'ERROR')
+        except requests.exceptions.RequestException as e:
+            print_debug('Update attempt led to request exception with code {}'.format(str(e.response.status_code)), 'ERROR')
             time.sleep(5+tries)
             continue
         tries += 1
