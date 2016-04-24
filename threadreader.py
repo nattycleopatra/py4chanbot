@@ -9,6 +9,7 @@ import time
 import re
 import threading
 import configparser
+from socket import timeout
 from io import StringIO
 import textwrap
 import requests
@@ -365,7 +366,7 @@ def main():
 
         c.add_global_handler('pubmsg', on_pubmsg)
         c.add_global_handler('privmsg', on_privmsg)
-        c.add_global_handler('privnotice', on_privmsg)
+        #c.add_global_handler('privnotice', on_privmsg)
         c.add_global_handler('ctcp', on_ctcp)
         c.add_global_handler('welcome', on_welcome)
         c.add_global_handler('disconnect', on_disconnect)
@@ -381,7 +382,11 @@ def main():
 
 
     print_debug('Main process moving into connection maintainance')
-    reactor.process_forever()
+    while True:
+        reactor.process_forever()
+    except timeout:
+        print_debug('Error: timeout from socket connection')
+        continue
 
 
 if __name__ == '__main__':
