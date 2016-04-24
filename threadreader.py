@@ -65,12 +65,15 @@ def find_threads(board, general, search_comment=False):
     return threads
 
 def find_current_thread(board, general):
-    for thread in board.get_all_threads():
-        if thread.topic.subject is not None:
-            if re.search(general, thread.topic.subject, re.I):
-                print_debug('Found current thread: {}'.format(thread.url))
-                return thread.topic.post_id
-    print_debug('No thread up at the moment')
+    try:
+        for thread in board.get_all_threads():
+            if thread.topic.subject is not None:
+                if re.search(general, thread.topic.subject, re.I):
+                    print_debug('Found current thread: {}'.format(thread.url))
+                    return thread.topic.post_id
+        print_debug('No thread up at the moment')
+    except requests.exceptions.RequestException as e:
+        print_debug('Board update attempt led to request exception with code {}'.format(str(e.response.status_code)), 'ERROR')
     return -1
 
 def youtube_match(string):
