@@ -386,10 +386,11 @@ def main():
 
     print_debug('Main process moving into connection maintainance')
     while True:
-        reactor.process_forever()
-    except timeout:
-        print_debug('Error: timeout from socket connection')
-        continue
+        try:
+            reactor.process_forever()
+        except timeout:
+            print_debug('Error: timeout from socket connection')
+            continue
 
 
 if __name__ == '__main__':
