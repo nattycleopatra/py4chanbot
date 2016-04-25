@@ -18,20 +18,20 @@ import irc.client
 class ThreadBot(object):
 
     def __init__(self, config):
-        self._irc_server = cfg['IRC'].get('server', fallback='irc.rizon.net')
-        self._irc_port = cfg['IRC'].getint('port', fallback=6697)
-        self._irc_nick = cfg['IRC'].get('nick', fallback='pyemugenbot')
-        self._irc_channel = cfg['IRC'].get('channel', fallback='#emugentest')
-        self._irc_nickserv = cfg['IRC'].get('nickserv', fallback='NickServ')
-        self._irc_nickpass = cfg['IRC'].get('nickserv_password', fallback='')
-        self._admins = cfg['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
+        self._irc_server = config['IRC'].get('server', fallback='irc.rizon.net')
+        self._irc_port = config['IRC'].getint('port', fallback=6697)
+        self._irc_nick = config['IRC'].get('nick', fallback='pyemugenbot')
+        self._irc_channel = config['IRC'].get('channel', fallback='#emugentest')
+        self._irc_nickserv = config['IRC'].get('nickserv', fallback='NickServ')
+        self._irc_nickpass = config['IRC'].get('nickserv_password', fallback='')
+        self._admins = config['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
 
-        self._board_name = cfg['4chan'].get('board', fallback='vg')
-        self._general = cfg['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
-        self._archive = cfg['4chan'].get('archive', fallback='boards.fireden.net')
-        self._https = cfg['4chan'].getboolean('https', fallback=True)
+        self._board_name = config['4chan'].get('board', fallback='vg')
+        self._general = config['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
+        self._archive = config['4chan'].get('archive', fallback='boards.fireden.net')
+        self._https = config['4chan'].getboolean('https', fallback=True)
 
-        self._DEBUG_PRINT = cfg['general'].getboolean('debug', fallback=True)
+        self._DEBUG_PRINT = config['general'].getboolean('debug', fallback=True)
 
         self._board = basc_py4chan.Board(self._board_name, self._https)
         self._thread = self._board.get_thread(0)
@@ -111,7 +111,7 @@ class ThreadBot(object):
             tries += 1
         return update
 
-    def chat_new_posts(self, connection, target):
+    def chat_new_posts(self):
         update = self.update_thread()
         if update == -1:
             return False
@@ -172,9 +172,9 @@ class ThreadBot(object):
                                 line = buffer + line
                             for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
                                 try:
-                                    if not connection.is_connected():
-                                        connection.reconnect()
-                                    connection.privmsg(target, wrapped)
+                                    if not self._irc_connection.is_connected():
+                                        self._irc_connection.reconnect()
+                                    self._irc_connection.privmsg(self._irc_channel, wrapped)
                                 except:
                                     self.print_debug(sys.exc_info()[0], 'ERROR')
                             buffer = ''
@@ -190,22 +190,22 @@ class ThreadBot(object):
                     if self._thread.id != old_thread:
                         discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + self._thread.url
                         self.print_debug(discovered)
-                        connection.privmsg(target, discovered)
+                        self._irc_connection.privmsg(self._irc_channel, discovered)
                         self._bumplimit_warning = True
                         return True
                     else:
                         if self._bumplimit_warning:
                             warning = '[\x0305WARNING!\x0f] Current thread has now reached the \x0307bump limit\x0f!'
-                            connection.privmsg(target, warning)
+                            self._irc_connection.privmsg(self._irc_channel, warning)
                             self._bumplimit_warning = False
                 return False
         else:
             self.print_debug('Thread is dead ' + str(self._thread.topic.post_id), 'WARNING')
-            connection.privmsg(target, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD\x0f! Archive URL: ' + self.archive_url())
+            self._irc_connection.privmsg(self._irc_channel, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD\x0f! Archive URL: ' + self.archive_url())
             self.set_thread(self._board, self.wait_for_new_thread())
             discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + self._thread.url
             self.print_debug(discovered)
-            connection.privmsg(target, discovered)
+            self._irc_connection.privmsg(self._irc_channel, discovered)
             return True
 
     def wait_for_new_thread(self):
@@ -221,13 +221,13 @@ class ThreadBot(object):
 
         return new_id
 
-    def feed_loop(self, connection, target):
+    def feed_loop(self):
         self.print_debug('Bot started up, looking for thread')
         self.set_thread(self._board, self.wait_for_new_thread())
         check_interval = 5
         while (1):
             time.sleep(check_interval)
-            if (self.chat_new_posts(connection, target)):
+            if (self.chat_new_posts()):
                 check_interval = 5
             else:
                 if (check_interval < 30):
@@ -366,7 +366,9 @@ class ThreadBot(object):
             connection.add_global_handler('welcome', self.on_welcome)
             connection.add_global_handler('disconnect', self.on_disconnect)
 
-            thread = threading.Thread(target=self.feed_loop, args=(connection, self._irc_channel,))
+            self._irc_connection = connection
+
+            thread = threading.Thread(target=self.feed_loop)
             thread.start()
 
             self.print_debug('Bot runloop started')
