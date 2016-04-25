@@ -1,12 +1,29 @@
-# configure values and rename to config.cfg
+## configure the values and rename this file to config.cfg
 
 [IRC]
+# Set which network to join.
 server = irc.rizon.net
+# Set which port to connect on.
 port = 6697
-nick = pyemugenbot
+# Set the bot's nickname.
+nick = pyemugenbot 
+# Set which channel to join.
 channel = #emugentest
+# Set the nickserv user's nickname (optional).
+nickserv = NickServ
+# Set your nickserv password to authenticate (optional).
+nickserv_password = your_password
+# Set one or more comma separated nicks which get to run "privileged" bot commands like restart (optional).
+admins = yournick,anotherguy
 
 [4chan]
+# Set which board to use.
 board = vg
+# Set a regex search pattern the bot can identify your thread with.
 general = emugen|emulation
+# Set a domain that archives your board.
 archive = boards.fireden.net
+
+[general]
+# Enable/disable debug output to the attached terminal.
+debug = false
