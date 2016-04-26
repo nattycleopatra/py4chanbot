@@ -1,0 +1,5 @@
+# pulling BASC-py4chan from git until first >0.6.0 release
+-e git+https://github.com/bibanon/BASC-py4chan.git@f556bb9dddfde6d3b65457b0cd05cbb42a2927df#egg=basc_py4chan
+irc
+requests
+beautifulsoup4
