@@ -15,6 +15,8 @@ import requests
 import basc_py4chan
 import irc.client
 
+from . import __version__
+
 class ThreadBot(object):
 
     def __init__(self, config):
@@ -330,7 +332,7 @@ class ThreadBot(object):
 
     def on_ctcp(self, connection, event):
         if event.arguments[0] == 'VERSION':
-            connection.ctcp_reply(event.source.nick, 'VERSION pyemugenbot 0.1')
+            connection.ctcp_reply(event.source.nick, 'VERSION py4chanbot ' + __version__)
 
     def on_disconnect(self, connection, event):
         time.sleep(3)
