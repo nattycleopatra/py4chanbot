@@ -16,6 +16,7 @@ import basc_py4chan
 import irc.client
 
 from . import __version__
+from .helper import clean_comment_body, youtube_match, youtube_video_title_lookup, debugprint
 
 class ThreadBot(object):
 
@@ -72,33 +73,6 @@ class ThreadBot(object):
             self.print_debug('Board update attempt led to request exception with code {}'.format(str(e.response.status_code)), 'ERROR')
         return -1
 
-    def youtube_match(self, string):
-        youtube = r'(youtu(?<=(v|V)/)|(?<=be/)|(?<=(\?|\&)v=)|(?<=embed/))([\w-]+)'
-        return re.search(youtube, string)
-
-    def youtube_video_title_lookup(self, string, include_url=False):
-        yt_match = self.youtube_match(string)
-        if yt_match: #youtube handling
-            splitline = string.split(' ')
-            import urllib
-            from bs4 import BeautifulSoup
-            try:
-                for i, word in enumerate(splitline):
-                    if self.youtube_match(word):
-                        video_id = yt_match.group(0)
-                        bs = BeautifulSoup(urllib.request.urlopen('https://www.youtube.com/watch?v=' + video_id), 'html.parser') # html.parser is 7% slower than lxml
-                        video_title = bs.title.string[0:-10]
-                        if not video_title:
-                            return string
-                        word= '[You\x0301,05Tube\x0f] \x0304' + video_title + '\x0f'
-                        if include_url:
-                            word = word + ' [https://youtu.be/' + video_id + ']'
-                        splitline[i] = ('').join(word)
-                string = (' ').join(splitline)
-            except urllib.error.HTTPError as e:
-                self.print_debug('Got HTTP error {} attempting to open YouTube link'.format(str(e.code)), 'ERROR')
-        return string
-
     def update_thread(self):
         update = -1
         tries = 0
@@ -139,7 +113,7 @@ class ThreadBot(object):
                     if re.search('<s>', comment):
                         comment = comment.replace('<s>', '\x0301,01')
                         comment = comment.replace('</s>', '\x0f')
-                    comment = basc_py4chan.util.clean_comment_body(comment)
+                    comment = clean_comment_body(comment)
                     lines = comment.split('\n')
                     quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
                     for line in lines:
@@ -152,8 +126,8 @@ class ThreadBot(object):
                                         splitline[i] = ('').join(word)
                                 line = (' ').join(splitline)
 
-                            if self.youtube_match(line):
-                                line = self.youtube_video_title_lookup(line, True)
+                            if youtube_match(line):
+                                line = youtube_video_title_lookup(line, True)
                             greentext = '^>[^>\n]+$'
                             if re.match(greentext, line):
                                 print('\x0303{}\x0f'.format(line),file=output)
@@ -238,7 +212,7 @@ class ThreadBot(object):
 
     def on_pubmsg(self, connection, event):
         args = event.arguments[0]
-        yt_match = self.youtube_match(args)
+        yt_match = youtube_match(args)
         if re.search('^' + connection.get_nickname() + ':', args):
             self.print_debug('Detected my own nick mentioned')
             split_args = args.split(' ')
@@ -306,8 +280,8 @@ class ThreadBot(object):
         elif yt_match:
             output = []
             for part in args.split(' '):
-                if self.youtube_match(part):
-                    title = self.youtube_video_title_lookup(part)
+                if youtube_match(part):
+                    title = youtube_video_title_lookup(part)
                     if title != part:
                         output.append('↑↑ ' + title + ' ↑↑')
             for msg in output:
@@ -345,13 +319,7 @@ class ThreadBot(object):
 
     def print_debug(self, msg, type='INFO', newline=True, time_display=True):
         if self._DEBUG_PRINT:
-            message = '[{}] {}'.format(type, msg)
-            if time_display:
-                message = '[' + time.strftime('%Y-%m-%d %H:%M:%S') + '] ' + message
-            if newline:
-                print(message)
-            else:
-                print(message, end='')
+            debugprint(msg, type, newline, time_display)
 
     def main(self):
         reactor = irc.client.Reactor()
