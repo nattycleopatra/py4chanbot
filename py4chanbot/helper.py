@@ -42,7 +42,7 @@ def youtube_video_title_lookup(string, include_url=False):
                     splitline[i] = ('').join(word)
             string = (' ').join(splitline)
         except urllib.error.HTTPError as e:
-            self.print_debug('Got HTTP error {} attempting to open YouTube link'.format(str(e.code)), 'ERROR')
+            debugprint('Got HTTP error {} attempting to open YouTube link'.format(str(e.code)), 'ERROR')
     return string
 
 def debugprint(msg, type='INFO', newline=True, time_display=True):
