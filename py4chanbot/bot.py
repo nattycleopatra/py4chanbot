@@ -105,8 +105,6 @@ class ThreadBot(object):
                             print('\x0313{}\x0f'.format(post.tripcode),end='',file=output)
                         print('] ',end='',file=output)
                     if post.has_file:
-                        # File.filename_original attribute has been merged upstream but is not yet in release
-                        # https://github.com/bibanon/BASC-py4chan/commit/205d001
                         print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.file_url, post.file.filename_original),end='',file=output)
                     print(file=output)
                     comment = post.comment

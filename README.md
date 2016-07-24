@@ -10,7 +10,7 @@ py4chanbot utilizes the [BASC-py4chan](https://github.com/bibanon/BASC-py4chan) 
 All code is released under [the MIT license](LICENSE).
 
 ### Installation
-Since the latest BASC-py4chan release is currently missing some needed attributes, you'll need to fetch a newer version from their git repository. pip will handle this if you don't want to install dependencies manually.
+You can just let pip handle the installation of dependencies, unless you for some reason really want to do it manually.
 
 ```
 pip install -r requirements.txt
