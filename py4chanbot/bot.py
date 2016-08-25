@@ -17,10 +17,12 @@ import irc.client
 
 from . import __version__
 from .helper import clean_comment_body, youtube_match, youtube_video_title_lookup, debugprint
+from .protocol_abstraction import ProtocolAbstraction
 
 class ThreadBot(object):
 
     def __init__(self, config):
+        self._irc_enable = config['IRC'].get('enable', fallback=False)
         self._irc_server = config['IRC'].get('server', fallback='irc.rizon.net')
         self._irc_port = config['IRC'].getint('port', fallback=6697)
         self._irc_nick = config['IRC'].get('nick', fallback='pyemugenbot')
@@ -28,6 +30,11 @@ class ThreadBot(object):
         self._irc_nickserv = config['IRC'].get('nickserv', fallback='NickServ')
         self._irc_nickpass = config['IRC'].get('nickserv_password', fallback='')
         self._admins = config['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
+
+        self._connections = ProtocolAbstraction(config)
+        self._irc_connection = self._connections.get_irc()
+
+        self._connections.chat('this is a test')
 
         self._board_name = config['4chan'].get('board', fallback='vg')
         self._general = config['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
@@ -146,9 +153,10 @@ class ThreadBot(object):
                                 line = buffer + line
                             for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
                                 try:
-                                    if not self._irc_connection.is_connected():
-                                        self._irc_connection.reconnect()
-                                    self._irc_connection.privmsg(self._irc_channel, wrapped)
+                                    #if not self._irc_connection.is_connected():
+                                    #    self._irc_connection.reconnect()
+                                    #self._irc_connection.privmsg(self._irc_channel, wrapped)
+                                    self._connections.chat(msg=wrapped)
                                 except:
                                     self.print_debug(sys.exc_info()[0], 'ERROR')
                             buffer = ''
@@ -208,151 +216,13 @@ class ThreadBot(object):
                     check_interval += 5
                 self.print_debug('Waiting {} seconds'.format(check_interval))
 
-    def on_pubmsg(self, connection, event):
-        args = event.arguments[0]
-        yt_match = youtube_match(args)
-        if re.search('^' + connection.get_nickname() + ':', args):
-            self.print_debug('Detected my own nick mentioned')
-            split_args = args.split(' ')
-            cmd = split_args[1]
-            if (cmd == 'thread'):
-                connection.privmsg(self._irc_channel, self._thread.url)
-            elif (cmd == 'posts'):
-                connection.privmsg(self._irc_channel, 'Thread is currently at ' + str(len(self._thread.posts)) + ' posts')
-            elif (cmd == 'ppm' or cmd == 'speed'):
-                time_since = int(time.time()) - self._thread.topic.timestamp
-                ppm = len(self._thread.posts) / (time_since / 60)
-                connection.privmsg(self._irc_channel, '{0:.2f} posts per minute'.format(ppm))
-            elif (cmd == 'search'):
-                if len(args.split(' ')) > 3:
-                    invalid_board = True
-                    for board in basc_py4chan.get_all_boards():
-                        if split_args[2] == board.name:
-                            invalid_board = False
-                            self.print_debug('Board found')
-                            search_board = basc_py4chan.Board(split_args[2], self._https)
-                            threads = self.find_threads(search_board, (' ').join(split_args[3:]), True)
-                            if len(threads) > 0:
-                                self.print_debug('Thread(s) found')
-                                for found_thread in threads:
-                                    subject = found_thread.topic.subject
-                                    comment = found_thread.topic.text_comment
-                                    if subject is not None:
-                                        message = '\x0304' + found_thread.topic.subject + '\x0f'
-                                    else:
-                                        line = comment.split('\n')[0]
-                                        maxlength = 50
-                                        if len(line) > maxlength:
-                                            message = '\x0304' + line[:maxlength] + '...' + '\x0f'
-                                        else:
-                                            message = '\x0304' + line + '\x0f'
-                                    message = message + ': ' + found_thread.url
-                                    connection.privmsg(self._irc_channel, message)
-                            else:
-                                connection.privmsg(self._irc_channel, 'No such thread')
-                    if invalid_board:
-                        connection.privmsg(self._irc_channel, 'No such board')
-                else:
-                    connection.privmsg(self._irc_channel, 'Not enough arguments')
-            elif (cmd == 'commands'):
-                commands = ['thread: returns URL to current thread',
-                            'posts: returns post count of current thread',
-                            'ppm|speed: returns the average posts per minute for this thread'
-                            'search <board> <thread>: returns thread title and URL if found'
-                           ]
-                for msg in commands:
-                    connection.privmsg(event.source.nick, msg)
-            else:
-                if (event.source.nick in self._admins):
-                    if (cmd == 'restart'):
-                        connection.disconnect('As you wish my lord...')
-                        import os
-                        os.execv(__file__, sys.argv)
-                    elif (cmd == 'quit' or cmd == 'die'):
-                        connection.disconnect('Yes master...')
-                        sys.exit()
-                    elif (cmd == 'msg'):
-                        if len(args.split(' ')) > 3:
-                            msg = (' ').join(split_args[3:])
-                            connection.privmsg(split_args[2], msg)
-        elif yt_match:
-            output = []
-            for part in args.split(' '):
-                if youtube_match(part):
-                    title = youtube_video_title_lookup(part)
-                    if title != part:
-                        output.append('↑↑ ' + title + ' ↑↑')
-            for msg in output:
-                connection.privmsg(self._irc_channel, msg)
-
-    def on_privmsg(self, connection, event):
-        args = event.arguments[0]
-        split_args = args.split(' ')
-        cmd = split_args[0]
-        self.print_debug(args)
-        if (event.source.nick in self._admins):
-            if (cmd == 'msg'):
-                msg = (' ').join(split_args[2:])
-                connection.privmsg(split_args[1], msg)
-            if (cmd == 'restart'):
-                connection.disconnect('Restarting...')
-                import os
-                os.execv(__file__, sys.argv)
-        if (event.source.nick not in self._admins):
-            for admin in admins:
-                connection.privmsg(admin, '<{}> '.format(event.source.nick) + args)
-
-    def on_ctcp(self, connection, event):
-        if event.arguments[0] == 'VERSION':
-            connection.ctcp_reply(event.source.nick, 'VERSION py4chanbot ' + __version__)
-
-    def on_disconnect(self, connection, event):
-        time.sleep(3)
-        connection.reconnect()
-
-    def on_welcome(self, connection, event):
-        if self._irc_nickpass:
-            connection.privmsg(self._irc_nickserv, 'IDENTIFY ' + self._irc_nickpass)
-        connection.join(self._irc_channel)
-
     def print_debug(self, msg, type='INFO', newline=True, time_display=True):
         if self._DEBUG_PRINT:
             debugprint(msg, type, newline, time_display)
 
     def main(self):
-        reactor = irc.client.Reactor()
-        try:
-            connection = reactor.server()
-            connection.buffer_class = irc.buffer.LenientDecodingLineBuffer
-            connection.connect(self._irc_server, self._irc_port, self._irc_nick)
-
-            connection.set_keepalive(60)
-
-            connection.add_global_handler('pubmsg', self.on_pubmsg)
-            connection.add_global_handler('privmsg', self.on_privmsg)
-            connection.add_global_handler('ctcp', self.on_ctcp)
-            connection.add_global_handler('welcome', self.on_welcome)
-            connection.add_global_handler('disconnect', self.on_disconnect)
-
-            self._irc_connection = connection
-
-            thread = threading.Thread(target=self.feed_loop)
-            thread.start()
-
-            self.print_debug('Bot runloop started')
-
-        except irc.client.ServerConnectionError:
-            print(sys.exc_info()[0])
-            raise SystemExit(1)
-
-
-        self.print_debug('Main process moving into connection maintainance')
-        while True:
-            try:
-                reactor.process_forever()
-            except timeout:
-                self.print_debug('Error: timeout from socket connection')
-                continue
+        thread = threading.Thread(target=self.feed_loop)
+        thread.start()
 
 
 if __name__ == '__main__':

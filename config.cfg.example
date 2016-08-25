@@ -7,7 +7,7 @@ server = irc.rizon.net
 port = 6697
 # Set the bot's nickname.
 nick = pyemugenbot 
-# Set which channel to join.
+# Set which channel(s) to join. Comma separated.
 channel = #emugentest
 # Set the nickserv user's nickname (optional).
 nickserv = NickServ
