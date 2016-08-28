@@ -3,12 +3,13 @@
 import re
 import time
 import threading
+import textwrap
 import irc.client
 import basc_py4chan
 from socket import timeout
 
 from .. import __version__
-from ..helper import youtube_match, youtube_video_title_lookup, debugprint
+from ..helper import youtube_match, youtube_video_title_lookup, debugprint, clean_comment_body
 
 class IRC(object):
 
@@ -47,9 +48,93 @@ class IRC(object):
     def get_connection(self):
         return self._connection
 
-    def chat(self, msg=''):
-        for channel in self._channels:
-            self._connection.privmsg(channel, msg)
+    def chat(self, msg='', post={}, channels='', type=''):
+        if post:
+            msg = self.format_post(post)
+        elif type:
+            if type == 'discovered':
+                thread_url = msg
+                msg = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + thread_url
+            elif type == 'bumplimit':
+                msg = '[\x0305WARNING!\x0f] Current thread has now reached the \x0307bump limit\x0f!'
+            elif type == 'dead':
+                archive = msg
+                msg = '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD\x0f! Archive URL: ' + archive
+
+        if msg:
+            quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
+            buffer = ''
+            for i, line in enumerate(msg.split('\n')):
+                if i == 0:
+                    buffer = line
+                    if buffer[-1] is not ' ':
+                        buffer += ' '
+                elif re.match('\x0304' + quote + '\x0f', line):
+                    buffer += line + ' '
+                else:
+                    if buffer:
+                        line = buffer + line
+                    for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
+                        try:
+                            for channel in self._channels:
+                                self._connection.privmsg(channel, wrapped)
+                            #if not self._irc_connection.is_connected():
+                            #    self._irc_connection.reconnect()
+                            #self._irc_connection.privmsg(self._irc_channel, wrapped)
+                            #self._connections.chat(msg=wrapped)
+                            print('')
+                        except:
+                            self.print_debug(sys.exc_info()[0], 'ERROR')
+                    buffer = ''
+
+    def format_post(self, post={}):
+        from io import StringIO
+
+        output = StringIO(newline='')
+        print('[\x02\x0310{}\x0f] '.format(str(post.get('id'))),end='',file=output)
+        if 'name' in post or 'tripcode' in post:
+            print('[\x0314name:\x0f ',end='',file=output)
+            if 'name' in post:
+                print(post.get('name'),end='',file=output)
+            if 'tripcode' in post:
+                print('\x0313{}\x0f'.format(post.get('tripcode')),end='',file=output)
+            print('] ',end='',file=output)
+        if 'fileurl' in post:
+            print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.get('fileurl'), post.get('filename')),end='',file=output)
+        print(file=output)
+
+        if 'comment' in post:
+            comment = post.get('comment')
+            if re.search('<s>', comment):
+                comment = comment.replace('<s>', '\x0301,01')
+                comment = comment.replace('</s>', '\x0f')
+            comment = clean_comment_body(comment)
+            lines = comment.split('\n')
+            quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
+            for line in lines:
+                if not re.match(r'^\s*$', line): # no checking of blank lines
+                    if re.search(quote, line):
+                        splitline = line.split(' ')
+                        for i, word in enumerate(splitline):
+                            if re.match(quote, word): # quote handling
+                                word = '\x0304', word, '\x0f'
+                                splitline[i] = ('').join(word)
+                        line = (' ').join(splitline)
+
+                    if youtube_match(line):
+                        line = youtube_video_title_lookup(line, True)
+                    greentext = '^>[^>\n]+$'
+                    if re.match(greentext, line):
+                        print('\x0303{}\x0f'.format(line),file=output)
+                    else:
+                        print(line,file=output)
+
+        processed_post = output.getvalue()
+
+        output.close()
+
+        return processed_post
+
 
     def connection_maintenance(self):
         while True:

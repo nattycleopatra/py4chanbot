@@ -8,12 +8,9 @@ import re
 import threading
 import configparser
 from socket import timeout
-from io import StringIO
-import textwrap
 
 import requests
 import basc_py4chan
-import irc.client
 
 from . import __version__
 from .helper import clean_comment_body, youtube_match, youtube_video_title_lookup, debugprint
@@ -22,19 +19,7 @@ from .protocol_abstraction import ProtocolAbstraction
 class ThreadBot(object):
 
     def __init__(self, config):
-        self._irc_enable = config['IRC'].get('enable', fallback=False)
-        self._irc_server = config['IRC'].get('server', fallback='irc.rizon.net')
-        self._irc_port = config['IRC'].getint('port', fallback=6697)
-        self._irc_nick = config['IRC'].get('nick', fallback='pyemugenbot')
-        self._irc_channel = config['IRC'].get('channel', fallback='#emugentest')
-        self._irc_nickserv = config['IRC'].get('nickserv', fallback='NickServ')
-        self._irc_nickpass = config['IRC'].get('nickserv_password', fallback='')
-        self._admins = config['IRC'].get('admins', fallback='').split(',') # comma separated list of users who can restart and shutdown the bot
-
         self._connections = ProtocolAbstraction(config)
-        self._irc_connection = self._connections.get_irc()
-
-        self._connections.chat('this is a test')
 
         self._board_name = config['4chan'].get('board', fallback='vg')
         self._general = config['4chan'].get('general', fallback='emugen|emulation') # matching pattern to find thread
@@ -102,66 +87,19 @@ class ThreadBot(object):
             if (update > 0):
                 new_posts = self._thread.posts[-update:]
                 for post in new_posts:
-                    output = StringIO(newline='')
-                    print('[\x02\x0310{}\x0f] '.format(post.post_id),end='',file=output)
+                    contents = {}
+                    contents['id'] = post.post_id
                     if post.name != 'Anonymous':
-                        print('[\x0314name:\x0f ',end='',file=output)
                         if not post.name is None:
-                            print(post.name,end='',file=output)
+                            contents['name'] = post.name
                         if not post.tripcode is None:
-                            print('\x0313{}\x0f'.format(post.tripcode),end='',file=output)
-                        print('] ',end='',file=output)
+                            contents['tripcode'] = post.tripcode
                     if post.has_file:
-                        print('[\x0314file:\x0f {} (\x0319{}\x0f)]'.format(post.file_url, post.file.filename_original),end='',file=output)
-                    print(file=output)
-                    comment = post.comment
-                    if re.search('<s>', comment):
-                        comment = comment.replace('<s>', '\x0301,01')
-                        comment = comment.replace('</s>', '\x0f')
-                    comment = clean_comment_body(comment)
-                    lines = comment.split('\n')
-                    quote = r'>>((\d+)|>((((/\w+)*)*)/?))'
-                    for line in lines:
-                        if not re.match(r'^\s*$', line): # no checking of blank lines
-                            if re.search(quote, line):
-                                splitline = line.split(' ')
-                                for i, word in enumerate(splitline):
-                                    if re.match(quote, word): # quote handling
-                                        word = '\x0304', word, '\x0f'
-                                        splitline[i] = ('').join(word)
-                                line = (' ').join(splitline)
+                        contents['fileurl'] = post.file_url
+                        contents['filename'] = post.file.filename_original
+                    contents['comment'] = post.comment
 
-                            if youtube_match(line):
-                                line = youtube_video_title_lookup(line, True)
-                            greentext = '^>[^>\n]+$'
-                            if re.match(greentext, line):
-                                print('\x0303{}\x0f'.format(line),file=output)
-                            else:
-                                print(line,file=output)
-
-                    self.print_debug(output.getvalue(), 'POST', False)
-                    buffer = ''
-                    for i, line in enumerate(output.getvalue().split('\n')):
-                        if i == 0:
-                            buffer = line
-                            if buffer[-1] is not ' ':
-                                buffer += ' '
-                        elif re.match('\x0304' + quote + '\x0f', line):
-                            buffer += line + ' '
-                        else:
-                            if buffer:
-                                line = buffer + line
-                            for wrapped in textwrap.wrap(line, 425): # IRC messages must be under 512 total bytes
-                                try:
-                                    #if not self._irc_connection.is_connected():
-                                    #    self._irc_connection.reconnect()
-                                    #self._irc_connection.privmsg(self._irc_channel, wrapped)
-                                    self._connections.chat(msg=wrapped)
-                                except:
-                                    self.print_debug(sys.exc_info()[0], 'ERROR')
-                            buffer = ''
-
-                    output.close()
+                    self._connections.chat(post=contents)
                 return True
             else:
                 self.print_debug('No new posts')
@@ -172,22 +110,25 @@ class ThreadBot(object):
                     if self._thread.id != old_thread:
                         discovered = '[\x0308ATTENTION!\x0f] Discovered next thread: ' + self._thread.url
                         self.print_debug(discovered)
-                        self._irc_connection.privmsg(self._irc_channel, discovered)
+                        self._connections.chat(msg=self._thread.url, type='discovered')
                         self._bumplimit_warning = True
                         return True
                     else:
                         if self._bumplimit_warning:
-                            warning = '[\x0305WARNING!\x0f] Current thread has now reached the \x0307bump limit\x0f!'
-                            self._irc_connection.privmsg(self._irc_channel, warning)
+                            debugprint('Current thread has reached the bump limit')
+                            self._connections.chat(type='bumplimit')
                             self._bumplimit_warning = False
                 return False
         else:
             self.print_debug('Thread is dead ' + str(self._thread.topic.post_id), 'WARNING')
-            self._irc_connection.privmsg(self._irc_channel, '[\x0305WARNING!\x0f] THREAD IS \x0305DEAD\x0f! Archive URL: ' + self.archive_url())
+
+            self._connections.chat(msg=self.archive_url(), type='dead')
+
             self.set_thread(self._board, self.wait_for_new_thread())
             discovered = '[\x0308ATTENTION!\x0f] Discovered new thread: ' + self._thread.url
             self.print_debug(discovered)
-            self._irc_connection.privmsg(self._irc_channel, discovered)
+
+            self._connections.chat(msg='self._thread.url', type='discovered')
             return True
 
     def wait_for_new_thread(self):

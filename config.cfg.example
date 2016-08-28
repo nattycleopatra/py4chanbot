@@ -8,7 +8,7 @@ port = 6697
 # Set the bot's nickname.
 nick = pyemugenbot 
 # Set which channel(s) to join. Comma separated.
-channel = #emugentest
+channels = #emugentest
 # Set the nickserv user's nickname (optional).
 nickserv = NickServ
 # Set your nickserv password to authenticate (optional).

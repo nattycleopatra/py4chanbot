@@ -5,6 +5,7 @@ from .helper import debugprint
 import logging
 
 class ProtocolAbstraction(object):
+    irc = None
 
     def __init__(self, config):
         logging.basicConfig(level=logging.DEBUG,
@@ -12,9 +13,10 @@ class ProtocolAbstraction(object):
         console = logging.StreamHandler()
         console.setLevel(logging.DEBUG)
         logging.getLogger('').addHandler(console)
-        self._irc_enabled = config['IRC'].get('enable', fallback=False)
 
-        if self._irc_enabled:
+        irc = config['IRC'].getboolean('enable', fallback=False)
+
+        if irc:
             self.irc_init(config)
 
     def irc_init(self, config):
@@ -29,15 +31,12 @@ class ProtocolAbstraction(object):
 
         from .protocols import irc
 
-        self._irc = irc.IRC(server=server, port=port, nick=nick, channels=channels, nickserv=nickserv, nickpass=nickpass, admins=admins)
+        self.irc = irc.IRC(server=server, port=port, nick=nick, channels=channels, nickserv=nickserv, nickpass=nickpass, admins=admins)
 
         debugprint('irc init done')
         return 0
 
-    def get_irc(self):
-        if self._irc_enabled:
-            return self._irc.get_connection
 
-    def chat(self, msg='', channel=''):
-        if self._irc_enabled:
-            self._irc.chat(msg=msg)
+    def chat(self, msg='', post={}, channels='', type=''):
+        if self.irc is not None:
+            self.irc.chat(msg=msg, post=post, type='')
