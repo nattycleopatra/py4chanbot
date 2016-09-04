@@ -3,6 +3,7 @@
 import discord
 import asyncio
 import threading
+import concurrent
 import re
 
 from .. import __version__
@@ -15,15 +16,19 @@ class Discord(discord.Client):
         super(Discord, self).__init__()
 
         loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(5)
+        loop.set_default_executor(executor)
 
         self._channels_text = channels
 
-        t = threading.Thread(target=self.exec,args=(loop,token,))
+        t = threading.Thread(target=self.exec,args=(loop,executor,token))
         t.start()
 
-    def exec(self, loop, token):
+    def exec(self, loop, executor, token):
         asyncio.set_event_loop(loop)
         self.run(token)
+        executor.shutdown(wait=True)
+        loop.close()
 
     @asyncio.coroutine
     def on_ready(self):
