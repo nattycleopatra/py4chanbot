@@ -7,6 +7,7 @@ import textwrap
 import irc.client
 import basc_py4chan
 from socket import timeout
+from jaraco.stream import buffer
 
 from .. import __version__
 from ..helper import youtube_match, youtube_video_title_lookup, debugprint, clean_comment_body
@@ -17,7 +18,7 @@ class IRC(object):
         self._reactor = irc.client.Reactor()
         try:
             connection = self._reactor.server()
-            connection.buffer_class = irc.buffer.LenientDecodingLineBuffer
+            connection.buffer_class = buffer.LenientDecodingLineBuffer
 
             connection.set_keepalive(60)
 
